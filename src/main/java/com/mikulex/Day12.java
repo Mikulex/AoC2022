@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
@@ -37,6 +39,16 @@ public class Day12 {
         int pathLength = searchShortestPath(start, end, heightMap);
         System.out.println(pathLength);
 
+        // reset
+        Arrays.stream(heightMap).flatMap(Arrays::stream).forEach(node -> {
+            node.currentCost = 0;
+            node.best = null;
+        });
+
+        // part 2
+        pathLength = searchShortestPathPart2(end, heightMap);
+        System.out.println(pathLength);
+
     }
 
     private static int searchShortestPath(Node start, Node end, Node[][] heightMap) {
@@ -55,7 +67,27 @@ public class Day12 {
 
             closedSet.add(currentNode);
             assert currentNode != null;
-            checkNeighbours(currentNode, openQueue, closedSet, heightMap);
+            checkNeighbours(currentNode, openQueue, closedSet, heightMap, (current, neighbour) -> Math.max(current.size - neighbour.size, 1));
+
+        }
+        return -1;
+    }
+    private static int searchShortestPathPart2(Node start, Node[][] heightMap) {
+        Set<Node> closedSet = new HashSet<>();
+        Queue<Node> openQueue = new PriorityQueue<>(Comparator.comparingInt(node -> node.currentCost));
+
+        openQueue.add(start);
+        start.currentCost = 0;
+
+        while (!openQueue.isEmpty()) {
+            Node currentNode = openQueue.poll();
+
+            if (currentNode.character == 'a') {
+                return getPathSize(currentNode);
+            }
+
+            closedSet.add(currentNode);
+            checkNeighbours(currentNode, openQueue, closedSet, heightMap, (current, neighbour) -> Math.max(neighbour.size - current.size, 1));
 
         }
         return -1;
@@ -70,35 +102,35 @@ public class Day12 {
         return length;
     }
 
-    private static void checkNeighbours(Node currentNode, Queue<Node> openQueue, Set<Node> closedSet, Node[][] heightMap) {
+    private static void checkNeighbours(Node currentNode, Queue<Node> openQueue, Set<Node> closedSet, Node[][] heightMap, BiFunction<Node, Node, Integer> diffFunction) {
         if (currentNode.x > 0) {
             Node testNode = heightMap[currentNode.x - 1][currentNode.y];
             if (!closedSet.contains(testNode)) {
-                addToQueue(currentNode, openQueue, testNode);;
+                addToQueue(currentNode, openQueue, testNode, diffFunction);;
             }
         }
         if (currentNode.x < heightMap.length - 1) {
             Node testNode = heightMap[currentNode.x + 1][currentNode.y];
             if (!closedSet.contains(testNode)) {
-                addToQueue(currentNode, openQueue, testNode);
+                addToQueue(currentNode, openQueue, testNode, diffFunction);
             }
         }
         if (currentNode.y > 0) {
             Node testNode = heightMap[currentNode.x][currentNode.y - 1];
             if (!closedSet.contains(testNode)) {
-                addToQueue(currentNode, openQueue, testNode);;
+                addToQueue(currentNode, openQueue, testNode, diffFunction);;
             }
         }
         if (currentNode.y < heightMap[0].length - 1) {
             Node testNode = heightMap[currentNode.x][currentNode.y + 1];
             if (!closedSet.contains(testNode)) {
-                addToQueue(currentNode, openQueue, testNode);
+                addToQueue(currentNode, openQueue, testNode, diffFunction);
             }
         }
     }
 
-    private static void addToQueue(Node currentNode, Queue<Node> openQueue, Node testNode) {
-        int diff = Math.max(testNode.size - currentNode.size, 1);
+    private static void addToQueue(Node currentNode, Queue<Node> openQueue, Node testNode, BiFunction<Node, Node, Integer> diffFunction) {
+        int diff = diffFunction.apply(testNode, currentNode);
         if (diff > 1) {
             return;
         }
